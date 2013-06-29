@@ -17,9 +17,9 @@ install:
     - sudo apt-get install $PYTHON-setuptools
     - sudo apt-get install $PYTHON-nose
     - sudo apt-get install $PYTHON-matplotlib
-    - sudo apt-get install cython
     - sudo apt-get install libfreeimage3
     - sudo apt-get install pyflakes pep8
+    - sudo pip-$PYVER install cython
     - sudo pip-$PYVER install flake8 --use-mirrors
     - $PYTHON setup.py build
     - sudo $PYTHON setup.py install
