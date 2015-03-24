@@ -11,8 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from skimage.draw import ellipse
-from skimage.morphology import label
-from skimage.measure import regionprops
+from skimage.measure import label, regionprops
 from skimage.transform import rotate
 
 
@@ -26,7 +25,8 @@ image = rotate(image, angle=15, order=0)
 label_img = label(image)
 regions = regionprops(label_img)
 
-plt.imshow(image)
+fig, ax = plt.subplots()
+ax.imshow(image, cmap=plt.cm.gray)
 
 for props in regions:
     y0, x0 = props.centroid
@@ -36,15 +36,14 @@ for props in regions:
     x2 = x0 - math.sin(orientation) * 0.5 * props.minor_axis_length
     y2 = y0 - math.cos(orientation) * 0.5 * props.minor_axis_length
 
-    plt.plot((x0, x1), (y0, y1), '-r', linewidth=2.5)
-    plt.plot((x0, x2), (y0, y2), '-r', linewidth=2.5)
-    plt.plot(x0, y0, '.g', markersize=15)
+    ax.plot((x0, x1), (y0, y1), '-r', linewidth=2.5)
+    ax.plot((x0, x2), (y0, y2), '-r', linewidth=2.5)
+    ax.plot(x0, y0, '.g', markersize=15)
 
     minr, minc, maxr, maxc = props.bbox
     bx = (minc, maxc, maxc, minc, minc)
     by = (minr, minr, maxr, maxr, minr)
-    plt.plot(bx, by, '-b', linewidth=2.5)
+    ax.plot(bx, by, '-b', linewidth=2.5)
 
-plt.gray()
-plt.axis((0, 600, 600, 0))
+ax.axis((0, 600, 600, 0))
 plt.show()

@@ -16,7 +16,7 @@ from skimage import data
 from skimage.transform import pyramid_gaussian
 
 
-image = data.lena()
+image = data.astronaut()
 rows, cols, dim = image.shape
 pyramid = tuple(pyramid_gaussian(image, downscale=2))
 
@@ -30,5 +30,6 @@ for p in pyramid[1:]:
     composite_image[i_row:i_row + n_rows, cols:cols + n_cols] = p
     i_row += n_rows
 
-plt.imshow(composite_image)
+fig, ax = plt.subplots()
+ax.imshow(composite_image)
 plt.show()

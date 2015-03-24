@@ -8,8 +8,8 @@ For more images, see
 
 import os as _os
 
-from ..io import imread
-from skimage import data_dir
+from .. import data_dir
+from ..io import imread, use_plugin
 
 
 __all__ = ['load',
@@ -24,7 +24,9 @@ __all__ = ['load',
            'clock',
            'immunohistochemistry',
            'chelsea',
-           'coffee']
+           'coffee',
+           'hubble_deep_field',
+           'astronaut']
 
 
 def load(f):
@@ -40,6 +42,7 @@ def load(f):
     img : ndarray
         Image loaded from skimage.data_dir.
     """
+    use_plugin('pil')
     return imread(_os.path.join(data_dir, f))
 
 
@@ -62,6 +65,24 @@ def lena():
 
     """
     return load("lena.png")
+
+
+def astronaut():
+    """Colour image of the astronaut Eileen Collins.
+
+    Photograph of Eileen Collins, an American astronaut. She was selected
+    as an astronaut in 1992 and first piloted the space shuttle STS-63 in
+    1995. She retired in 2006 after spending a total of 38 days, 8 hours
+    and 10 minutes in outer space.
+
+    This image was downloaded from the NASA Great Images database
+    <http://grin.hq.nasa.gov/ABSTRACTS/GPN-2000-001177.html>`__.
+
+    No known copyright restrictions, released into the public domain.
+
+    """
+
+    return load("astronaut.png")
 
 
 def text():
@@ -200,3 +221,23 @@ def coffee():
 
     """
     return load("coffee.png")
+
+
+def hubble_deep_field():
+    """Hubble eXtreme Deep Field.
+
+    This photograph contains the Hubble Telescope's farthest ever view of
+    the universe. It can be useful as an example for multi-scale
+    detection.
+
+    Notes
+    -----
+    This image was downloaded from
+    `HubbleSite
+    <http://hubblesite.org/newscenter/archive/releases/2012/37/image/a/>`__.
+
+    The image was captured by NASA and `may be freely used in the
+    public domain <http://www.nasa.gov/audience/formedia/features/MP_Photo_Guidelines.html>`_.
+
+    """
+    return load("hubble_deep_field.jpg")

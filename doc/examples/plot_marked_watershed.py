@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 
 from skimage.morphology import watershed, disk
 from skimage import data
-from skimage.filter import rank
+from skimage.filters import rank
 from skimage.util import img_as_ubyte
 
 
@@ -51,5 +51,5 @@ ax3.imshow(labels, cmap=plt.cm.spectral, interpolation='nearest', alpha=.7)
 for ax in axes:
     ax.axis('off')
 
-plt.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
+fig.subplots_adjust(hspace=0.01, wspace=0.01, top=1, bottom=0, left=0, right=1)
 plt.show()

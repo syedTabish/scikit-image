@@ -26,26 +26,20 @@ image_wrapped = np.angle(np.exp(1j * image))
 # Perform phase unwrapping
 image_unwrapped = unwrap_phase(image_wrapped)
 
-plt.figure()
-plt.subplot(221)
-plt.title('Original')
-plt.imshow(image, cmap='gray', vmin=0, vmax=4 * np.pi)
-plt.colorbar()
+fig, ax = plt.subplots(2, 2)
+ax1, ax2, ax3, ax4 = ax.ravel()
 
-plt.subplot(222)
-plt.title('Wrapped phase')
-plt.imshow(image_wrapped, cmap='gray', vmin=-np.pi, vmax=np.pi)
-plt.colorbar()
+fig.colorbar(ax1.imshow(image, cmap='gray', vmin=0, vmax=4 * np.pi), ax=ax1)
+ax1.set_title('Original')
 
-plt.subplot(223)
-plt.title('After phase unwrapping')
-plt.imshow(image_unwrapped, cmap='gray')
-plt.colorbar()
+fig.colorbar(ax2.imshow(image_wrapped, cmap='gray', vmin=-np.pi, vmax=np.pi), ax=ax2)
+ax2.set_title('Wrapped phase')
 
-plt.subplot(224)
-plt.title('Unwrapped minus original')
-plt.imshow(image_unwrapped - image, cmap='gray')
-plt.colorbar()
+fig.colorbar(ax3.imshow(image_unwrapped, cmap='gray'), ax=ax3)
+ax3.set_title('After phase unwrapping')
+
+fig.colorbar(ax4.imshow(image_unwrapped - image, cmap='gray'), ax=ax4)
+ax4.set_title('Unwrapped minus original')
 
 """
 .. image:: PLOT2RST.current_figure
@@ -70,26 +64,22 @@ image_unwrapped_no_wrap_around = unwrap_phase(image_wrapped,
 image_unwrapped_wrap_around = unwrap_phase(image_wrapped,
                                            wrap_around=(True, False))
 
-plt.figure()
-plt.subplot(221)
-plt.title('Original')
-plt.imshow(np.ma.array(image, mask=mask), cmap='jet')
-plt.colorbar()
+fig, ax = plt.subplots(2, 2)
+ax1, ax2, ax3, ax4 = ax.ravel()
 
-plt.subplot(222)
-plt.title('Wrapped phase')
-plt.imshow(image_wrapped, cmap='jet', vmin=-np.pi, vmax=np.pi)
-plt.colorbar()
+fig.colorbar(ax1.imshow(np.ma.array(image, mask=mask), cmap='jet'), ax=ax1)
+ax1.set_title('Original')
 
-plt.subplot(223)
-plt.title('Unwrapped without wrap_around')
-plt.imshow(image_unwrapped_no_wrap_around, cmap='jet')
-plt.colorbar()
+fig.colorbar(ax2.imshow(image_wrapped, cmap='jet', vmin=-np.pi, vmax=np.pi),
+           ax=ax2)
+ax2.set_title('Wrapped phase')
 
-plt.subplot(224)
-plt.title('Unwrapped with wrap_around')
-plt.imshow(image_unwrapped_wrap_around, cmap='jet')
-plt.colorbar()
+fig.colorbar(ax3.imshow(image_unwrapped_no_wrap_around, cmap='jet'),
+           ax=ax3)
+ax3.set_title('Unwrapped without wrap_around')
+
+fig.colorbar(ax4.imshow(image_unwrapped_wrap_around, cmap='jet'), ax=ax4)
+ax4.set_title('Unwrapped with wrap_around')
 
 plt.show()
 
@@ -102,7 +92,7 @@ is clear: Without unwrapping (lower left), the regions above and below the
 masked boundary do not interact at all, resulting in an offset between the
 two regions of an arbitrary integer times two pi. We could just as well have
 unwrapped the regions as two separate images. With wrap around enabled for the
-vertical direction (lower rigth), the situation changes: Unwrapping paths are
+vertical direction (lower right), the situation changes: Unwrapping paths are
 now allowed to pass from the bottom to the top of the image and vice versa, in
 effect providing a way to determine the offset between the two regions.
 

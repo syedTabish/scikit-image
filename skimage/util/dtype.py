@@ -11,6 +11,10 @@ dtype_range = {np.bool_: (False, True),
                np.uint16: (0, 65535),
                np.int8: (-128, 127),
                np.int16: (-32768, 32767),
+               np.int64: (-2**63, 2**63 - 1),
+               np.uint64: (0, 2**64 - 1),
+               np.int32: (-2**31, 2**31 - 1),
+               np.uint32: (0, 2**32 - 1),
                np.float32: (-1, 1),
                np.float64: (-1, 1)}
 
@@ -304,7 +308,8 @@ def img_as_uint(image, force_copy=False):
 
     Notes
     -----
-    Negative input values will be shifted to the positive domain.
+    Negative input values will be clipped.
+    Positive values are scaled between 0 and 65535.
 
     """
     return convert(image, np.uint16, force_copy)
@@ -327,6 +332,7 @@ def img_as_int(image, force_copy=False):
 
     Notes
     -----
+    The values are scaled between -32768 and 32767.
     If the input data-type is positive-only (e.g., uint8), then
     the output image will still only have positive values.
 
@@ -351,8 +357,8 @@ def img_as_ubyte(image, force_copy=False):
 
     Notes
     -----
-    If the input data-type is positive-only (e.g., uint16), then
-    the output image will still only have positive values.
+    Negative input values will be clipped.
+    Positive values are scaled between 0 and 255.
 
     """
     return convert(image, np.uint8, force_copy)

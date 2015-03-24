@@ -54,6 +54,11 @@ class LineModel(BaseModel):
         data : (N, 2) array
             N points with ``(x, y)`` coordinates, respectively.
 
+        Returns
+        -------
+        success : bool
+            True, if model estimation succeeds.
+
         """
 
         _check_data_dim(data, dim=2)
@@ -77,6 +82,8 @@ class LineModel(BaseModel):
         dist = X0[0] * math.cos(theta) + X0[1] * math.sin(theta)
 
         self.params = (dist, theta)
+
+        return True
 
     def residuals(self, data):
         """Determine residuals of data to model.
@@ -179,6 +186,11 @@ class CircleModel(BaseModel):
         data : (N, 2) array
             N points with ``(x, y)`` coordinates, respectively.
 
+        Returns
+        -------
+        success : bool
+            True, if model estimation succeeds.
+
         """
 
         _check_data_dim(data, dim=2)
@@ -213,6 +225,8 @@ class CircleModel(BaseModel):
         params, _ = optimize.leastsq(fun, params0, Dfun=Dfun, col_deriv=True)
 
         self.params = params
+
+        return True
 
     def residuals(self, data):
         """Determine residuals of data to model.
@@ -310,6 +324,11 @@ class EllipseModel(BaseModel):
         data : (N, 2) array
             N points with ``(x, y)`` coordinates, respectively.
 
+        Returns
+        -------
+        success : bool
+            True, if model estimation succeeds.
+
         """
 
         _check_data_dim(data, dim=2)
@@ -369,6 +388,8 @@ class EllipseModel(BaseModel):
         params, _ = optimize.leastsq(fun, params0, Dfun=Dfun, col_deriv=True)
 
         self.params = params[:5]
+
+        return True
 
     def residuals(self, data):
         """Determine residuals of data to model.
@@ -465,9 +486,50 @@ class EllipseModel(BaseModel):
         return np.concatenate((x[..., None], y[..., None]), axis=t.ndim)
 
 
+def _dynamic_max_trials(n_inliers, n_samples, min_samples, probability):
+    """Determine number trials such that at least one outlier-free subset is
+    sampled for the given inlier/outlier ratio.
+    Parameters
+    ----------
+    n_inliers : int
+        Number of inliers in the data.
+    n_samples : int
+        Total number of samples in the data.
+    min_samples : int
+        Minimum number of samples chosen randomly from original data.
+    probability : float
+        Probability (confidence) that one outlier-free sample is generated.
+    Returns
+    -------
+    trials : int
+        Number of trials.
+    """
+    if n_inliers == 0:
+        return np.inf
+
+    nom = 1 - probability
+    if nom == 0:
+        return np.inf
+
+    inlier_ratio = n_inliers / float(n_samples)
+    denom = 1 - inlier_ratio ** min_samples
+    if denom == 0:
+        return 1
+    elif denom == 1:
+        return np.inf
+
+    nom = np.log(nom)
+    denom = np.log(denom)
+    if denom == 0:
+        return 0
+
+    return int(np.ceil(nom / denom))
+
+
 def ransac(data, model_class, min_samples, residual_threshold,
            is_data_valid=None, is_model_valid=None,
-           max_trials=100, stop_sample_num=np.inf, stop_residuals_sum=0):
+           max_trials=100, stop_sample_num=np.inf, stop_residuals_sum=0,
+           stop_probability=1):
     """Fit a model to data with the RANSAC (random sample consensus) algorithm.
 
     RANSAC is an iterative algorithm for the robust estimation of parameters
@@ -507,9 +569,11 @@ def ransac(data, model_class, min_samples, residual_threshold,
     model_class : object
         Object with the following object methods:
 
-         * ``estimate(*data)``
+         * ``success = estimate(*data)``
          * ``residuals(*data)``
 
+        where `success` indicates whether the model estimation succeeded
+        (`True` or `None` for success, `False` for failure).
     min_samples : int
         The minimum number of data points to fit a model to.
     residual_threshold : float
@@ -525,7 +589,19 @@ def ransac(data, model_class, min_samples, residual_threshold,
     stop_sample_num : int, optional
         Stop iteration if at least this number of inliers are found.
     stop_residuals_sum : float, optional
-        Stop iteration if sum of residuals is less equal than this threshold.
+        Stop iteration if sum of residuals is less than or equal to this
+        threshold.
+    stop_probability : float in range [0, 1], optional
+        RANSAC iteration stops if at least one outlier-free set of the
+        training data is sampled with ``probability >= stop_probability``,
+        depending on the current best model's inlier ratio and the number
+        of trials. This requires to generate at least N samples (trials):
+
+            N >= log(1 - probability) / log(1 - e**m)
+
+        where the probability (confidence) is typically set to a high value
+        such as 0.99, and e is the current fraction of inliers w.r.t. the
+        total number of samples.
 
     Returns
     -------
@@ -565,6 +641,7 @@ def ransac(data, model_class, min_samples, residual_threshold,
 
     >>> model = EllipseModel()
     >>> model.estimate(data)
+    True
     >>> model.params # doctest: +SKIP
     array([ -3.30354146e+03,  -2.87791160e+03,   5.59062118e+03,
              7.84365066e+00,   7.19203152e-01])
@@ -586,7 +663,8 @@ def ransac(data, model_class, min_samples, residual_threshold,
     Robustly estimate geometric transformation:
 
     >>> from skimage.transform import SimilarityTransform
-    >>> src = 100 * np.random.random((50, 2))
+    >>> np.random.seed(0)
+    >>> src = 100 * np.random.rand(50, 2)
     >>> model0 = SimilarityTransform(scale=0.5, rotation=1,
     ...                              translation=(10, 20))
     >>> dst = model0(src)
@@ -609,19 +687,28 @@ def ransac(data, model_class, min_samples, residual_threshold,
     best_inlier_residuals_sum = np.inf
     best_inliers = None
 
+    if min_samples < 0:
+        raise ValueError("`min_samples` must be greater than zero")
+
+    if max_trials < 0:
+        raise ValueError("`max_trials` must be greater than zero")
+
+    if stop_probability < 0 or stop_probability > 1:
+        raise ValueError("`stop_probability` must be in range [0, 1]")
+
     if not isinstance(data, list) and not isinstance(data, tuple):
         data = [data]
 
     # make sure data is list and not tuple, so it can be modified below
     data = list(data)
     # number of samples
-    N = data[0].shape[0]
+    num_samples = data[0].shape[0]
 
-    for _ in range(max_trials):
+    for num_trials in range(max_trials):
 
         # choose random sample set
         samples = []
-        random_idxs = np.random.randint(0, N, min_samples)
+        random_idxs = np.random.randint(0, num_samples, min_samples)
         for d in data:
             samples.append(d[random_idxs])
 
@@ -631,7 +718,12 @@ def ransac(data, model_class, min_samples, residual_threshold,
 
         # estimate model for current random sample set
         sample_model = model_class()
-        sample_model.estimate(*samples)
+
+        success = sample_model.estimate(*samples)
+
+        if success is not None:  # backwards compatibility
+            if not success:
+                continue
 
         # check if estimated model is valid
         if is_model_valid is not None and not is_model_valid(sample_model,
@@ -659,6 +751,9 @@ def ransac(data, model_class, min_samples, residual_threshold,
             if (
                 best_inlier_num >= stop_sample_num
                 or best_inlier_residuals_sum <= stop_residuals_sum
+                or num_trials
+                    >= _dynamic_max_trials(best_inlier_num, num_samples,
+                                           min_samples, stop_probability)
             ):
                 break
 

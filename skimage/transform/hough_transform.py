@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import ndimage
-from skimage import measure, morphology
+from .. import measure, morphology
 from ._hough_transform import _hough_circle
 
 
@@ -71,9 +71,9 @@ def hough_line_peaks(hspace, angles, dists, min_distance=9, min_angle=10,
     hspace *= mask
     hspace_t = hspace > threshold
 
-    label_hspace = morphology.label(hspace_t)
-    props = measure.regionprops(label_hspace, ['Centroid'])
-    coords = np.array([np.round(p['Centroid']) for p in props], dtype=int)
+    label_hspace = measure.label(hspace_t)
+    props = measure.regionprops(label_hspace)
+    coords = np.array([np.round(p.centroid) for p in props], dtype=int)
 
     hspace_peaks = []
     dist_peaks = []

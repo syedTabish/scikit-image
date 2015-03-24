@@ -1,5 +1,5 @@
 from skimage import data
-from skimage.filter import canny
+from skimage.feature import canny
 
 from skimage.viewer import ImageViewer
 from skimage.viewer.widgets import Slider
@@ -21,4 +21,4 @@ plugin += SaveButtons(name='Save overlay to:')
 # Finally, attach the plugin to an image viewer.
 viewer = ImageViewer(image)
 viewer += plugin
-viewer.show()
+canny_edges = viewer.show()[0][0]

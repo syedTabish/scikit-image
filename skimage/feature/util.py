@@ -1,6 +1,7 @@
 import numpy as np
 
-from skimage.util import img_as_float
+from ..util import img_as_float
+from .._shared.utils import assert_nD
 
 
 class FeatureDetector(object):
@@ -105,7 +106,7 @@ def plot_matches(ax, image1, image2, keypoints1, keypoints2, matches,
         ax.scatter(keypoints2[:, 1] + offset[1], keypoints2[:, 0],
                    facecolors='none', edgecolors=keypoints_color)
 
-    ax.imshow(image)
+    ax.imshow(image, interpolation='nearest', cmap='gray')
     ax.axis((0, 2 * offset[1], offset[0], 0))
 
     for i in range(matches.shape[0]):
@@ -124,9 +125,7 @@ def plot_matches(ax, image1, image2, keypoints1, keypoints2, matches,
 
 def _prepare_grayscale_input_2D(image):
     image = np.squeeze(image)
-    if image.ndim != 2:
-        raise ValueError("Only 2-D gray-scale images supported.")
-
+    assert_nD(image, 2)
     return img_as_float(image)
 
 

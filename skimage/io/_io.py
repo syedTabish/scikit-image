@@ -1,11 +1,14 @@
 from io import BytesIO
+import warnings
 
 import numpy as np
 import six
 
-from skimage.io.manage_plugins import call_plugin
-from skimage.color import rgb2grey
+from ..io.manage_plugins import call_plugin
+from ..color import rgb2grey
 from .util import file_or_url_context
+from ..exposure import is_low_contrast
+from .._shared._warnings import all_warnings
 
 
 __all__ = ['Image', 'imread', 'imread_collection', 'imsave', 'imshow', 'show']
@@ -152,6 +155,8 @@ def imsave(fname, arr, plugin=None, **plugin_args):
         Passed to the given plugin.
 
     """
+    if is_low_contrast(arr):
+        warnings.warn('%s is a low contrast image' % fname)
     return call_plugin('imsave', fname, arr, plugin=plugin, **plugin_args)
 
 
@@ -193,7 +198,7 @@ def show():
     >>> import skimage.io as io
 
     >>> for i in range(4):
-    ...     io.imshow(np.random.random((50, 50)))
+    ...     ax_im = io.imshow(np.random.rand(50, 50))
     >>> io.show() # doctest: +SKIP
 
     '''

@@ -2,11 +2,13 @@ import numpy as np
 from scipy import ndimage
 from scipy import stats
 
-from skimage.color import rgb2grey
-from skimage.util import img_as_float, pad
-from skimage.feature import peak_local_max
-from skimage.feature.util import _prepare_grayscale_input_2D
-from skimage.feature.corner_cy import _corner_fast
+from ..util import img_as_float, pad
+from ..feature import peak_local_max
+from ..feature.util import _prepare_grayscale_input_2D
+from ..feature.corner_cy import _corner_fast
+from ._hessian_det_appx import _hessian_matrix_det
+from ..transform import integral_image
+from .._shared.utils import safe_as_int
 
 
 def _compute_derivatives(image, mode='constant', cval=0):
@@ -132,7 +134,7 @@ def hessian_matrix(image, sigma=1, mode='constant', cval=0):
 
     Examples
     --------
-    >>> from skimage.feature import hessian_matrix, hessian_matrix_eigvals
+    >>> from skimage.feature import hessian_matrix
     >>> square = np.zeros((5, 5))
     >>> square[2, 2] = 1
     >>> Hxx, Hxy, Hyy = hessian_matrix(square, sigma=0.1)
@@ -168,6 +170,45 @@ def hessian_matrix(image, sigma=1, mode='constant', cval=0):
     Hyy = ndimage.convolve(image, kernel_yy, mode=mode, cval=cval)
 
     return Hxx, Hxy, Hyy
+
+
+def hessian_matrix_det(image, sigma):
+    """Computes the approximate Hessian Determinant over an image.
+
+    This method uses box filters over integral images to compute the
+    approximate Hessian Determinant as described in [1]_.
+
+    Parameters
+    ----------
+    image : array
+        The image over which to compute Hessian Determinant.
+    sigma : float
+        Standard deviation used for the Gaussian kernel, used for the Hessian
+        matrix.
+
+    Returns
+    -------
+    out : array
+        The array of the Determinant of Hessians.
+
+    References
+    ----------
+    .. [1] Herbert Bay, Andreas Ess, Tinne Tuytelaars, Luc Van Gool,
+           "SURF: Speeded Up Robust Features"
+           ftp://ftp.vision.ee.ethz.ch/publications/articles/eth_biwi_00517.pdf
+
+    Notes
+    -----
+    The running time of this method only depends on size of the image. It is
+    independent of `sigma` as one would expect. The downside is that the
+    result for `sigma` less than `3` is not accurate, i.e., not similar to
+    the result obtained if someone computed the Hessian and took it's
+    determinant.
+    """
+
+    image = img_as_float(image)
+    image = integral_image(image)
+    return np.array(_hessian_matrix_det(image, sigma))
 
 
 def _image_orthogonal_matrix22_eigvals(M00, M01, M11):
@@ -247,7 +288,7 @@ def hessian_matrix_eigvals(Hxx, Hxy, Hyy):
 
     """
 
-    return _image_orthogonal_matrix22_eigvals(Hyy, Hxy, Hyy)
+    return _image_orthogonal_matrix22_eigvals(Hxx, Hxy, Hyy)
 
 
 def corner_kitchen_rosenfeld(image, mode='constant', cval=0):
@@ -282,8 +323,8 @@ def corner_kitchen_rosenfeld(image, mode='constant', cval=0):
     imxx, imxy = _compute_derivatives(imx, mode=mode, cval=cval)
     imyx, imyy = _compute_derivatives(imy, mode=mode, cval=cval)
 
-    numerator = (imxx * imy**2 + imyy * imx**2 - 2 * imxy * imx * imy)
-    denominator = (imx**2 + imy**2)
+    numerator = (imxx * imy ** 2 + imyy * imx ** 2 - 2 * imxy * imx * imy)
+    denominator = (imx ** 2 + imy ** 2)
 
     response = np.zeros_like(image, dtype=np.double)
 
@@ -301,7 +342,7 @@ def corner_harris(image, method='k', k=0.05, eps=1e-6, sigma=1):
         A = [(imx**2)   (imx*imy)] = [Axx Axy]
             [(imx*imy)   (imy**2)]   [Axy Ayy]
 
-    Where imx and imy are the first derivatives averaged with a gaussian filter.
+    Where imx and imy are first derivatives, averaged with a gaussian filter.
     The corner measure is then defined as::
 
         det(A) - k * trace(A)**2
@@ -362,12 +403,12 @@ def corner_harris(image, method='k', k=0.05, eps=1e-6, sigma=1):
     Axx, Axy, Ayy = structure_tensor(image, sigma)
 
     # determinant
-    detA = Axx * Ayy - Axy**2
+    detA = Axx * Ayy - Axy ** 2
     # trace
     traceA = Axx + Ayy
 
     if method == 'k':
-        response = detA - k * traceA**2
+        response = detA - k * traceA ** 2
     else:
         response = 2 * detA / (traceA + eps)
 
@@ -382,7 +423,7 @@ def corner_shi_tomasi(image, sigma=1):
         A = [(imx**2)   (imx*imy)] = [Axx Axy]
             [(imx*imy)   (imy**2)]   [Axy Ayy]
 
-    Where imx and imy are the first derivatives averaged with a gaussian filter.
+    Where imx and imy are first derivatives, averaged with a gaussian filter.
     The corner measure is then defined as the smaller eigenvalue of A::
 
         ((Axx + Ayy) - sqrt((Axx - Ayy)**2 + 4 * Axy**2)) / 2
@@ -432,7 +473,7 @@ def corner_shi_tomasi(image, sigma=1):
     Axx, Axy, Ayy = structure_tensor(image, sigma)
 
     # minimum eigenvalue of A
-    response = ((Axx + Ayy) - np.sqrt((Axx - Ayy)**2 + 4 * Axy**2)) / 2
+    response = ((Axx + Ayy) - np.sqrt((Axx - Ayy) ** 2 + 4 * Axy ** 2)) / 2
 
     return response
 
@@ -445,7 +486,7 @@ def corner_foerstner(image, sigma=1):
         A = [(imx**2)   (imx*imy)] = [Axx Axy]
             [(imx*imy)   (imy**2)]   [Axy Ayy]
 
-    Where imx and imy are the first derivatives averaged with a gaussian filter.
+    Where imx and imy are first derivatives, averaged with a gaussian filter.
     The corner measure is then defined as::
 
         w = det(A) / trace(A)           (size of error ellipse)
@@ -502,7 +543,7 @@ def corner_foerstner(image, sigma=1):
     Axx, Axy, Ayy = structure_tensor(image, sigma)
 
     # determinant
-    detA = Axx * Ayy - Axy**2
+    detA = Axx * Ayy - Axy ** 2
     # trace
     traceA = Axx + Ayy
 
@@ -512,7 +553,7 @@ def corner_foerstner(image, sigma=1):
     mask = traceA != 0
 
     w[mask] = detA[mask] / traceA[mask]
-    q[mask] = 4 * detA[mask] / traceA[mask]**2
+    q[mask] = 4 * detA[mask] / traceA[mask] ** 2
 
     return w, q
 
@@ -583,6 +624,13 @@ def corner_fast(image, n=12, threshold=0.15):
 def corner_subpix(image, corners, window_size=11, alpha=0.99):
     """Determine subpixel position of corners.
 
+    A statistical test decides whether the corner is defined as the
+    intersection of two edges or a single peak. Depending on the classification
+    result, the subpixel corner location is determined based on the local
+    covariance of the grey-values. If the significance level for either
+    statistical test is not sufficient, the corner cannot be classified, and
+    the output subpixel position is set to NaN.
+
     Parameters
     ----------
     image : ndarray
@@ -592,7 +640,7 @@ def corner_subpix(image, corners, window_size=11, alpha=0.99):
     window_size : int, optional
         Search window size for subpixel estimation.
     alpha : float, optional
-        Significance level for point classification.
+        Significance level for corner classification.
 
     Returns
     -------
@@ -635,7 +683,7 @@ def corner_subpix(image, corners, window_size=11, alpha=0.99):
     image = pad(image, pad_width=wext, mode='constant', constant_values=0)
 
     # add pad width, make sure to not modify the input values in-place
-    corners = corners + wext
+    corners = safe_as_int(corners + wext)
 
     # normal equation arrays
     N_dot = np.zeros((2, 2), dtype=np.double)
@@ -644,7 +692,7 @@ def corner_subpix(image, corners, window_size=11, alpha=0.99):
     b_edge = np.zeros((2, ), dtype=np.double)
 
     # critical statistical test values
-    redundancy = window_size**2 - 2
+    redundancy = window_size ** 2 - 2
     t_crit_dot = stats.f.isf(1 - alpha, redundancy, redundancy)
     t_crit_edge = stats.f.isf(alpha, redundancy, redundancy)
 
@@ -696,8 +744,13 @@ def corner_subpix(image, corners, window_size=11, alpha=0.99):
         b_edge[:] = byy_y + bxy_x, bxx_x + bxy_y
 
         # estimated positions
-        est_dot = np.linalg.solve(N_dot, b_dot)
-        est_edge = np.linalg.solve(N_edge, b_edge)
+        try:
+            est_dot = np.linalg.solve(N_dot, b_dot)
+            est_edge = np.linalg.solve(N_edge, b_edge)
+        except np.linalg.LinAlgError:
+            # if image is constant the system is singular
+            corners_subpix[i, :] = np.nan, np.nan
+            continue
 
         # residuals
         ry_dot = y - est_dot[0]
@@ -714,16 +767,23 @@ def corner_subpix(image, corners, window_size=11, alpha=0.99):
 
         # determine corner class (dot or edge)
         # variance for different models
-        var_dot = np.sum(winx_winx * ryy_dot - 2 * winx_winy * rxy_dot \
+        var_dot = np.sum(winx_winx * ryy_dot - 2 * winx_winy * rxy_dot
                          + winy_winy * rxx_dot)
-        var_edge = np.sum(winy_winy * ryy_edge + 2 * winx_winy * rxy_edge \
+        var_edge = np.sum(winy_winy * ryy_edge + 2 * winx_winy * rxy_edge
                           + winx_winx * rxx_edge)
-        # test value (F-distributed)
-        t = var_edge / var_dot
-        # 1 for edge, -1 for dot, 0 for "not classified"
-        corner_class = (t < t_crit_edge) - (t > t_crit_dot)
 
-        if corner_class == - 1:
+        # test value (F-distributed)
+        if var_dot < np.spacing(1) and var_edge < np.spacing(1):
+            t = np.nan
+        elif var_dot == 0:
+            t = np.inf
+        else:
+            t = var_edge / var_dot
+
+        # 1 for edge, -1 for dot, 0 for "not classified"
+        corner_class = int(t < t_crit_edge) - int(t > t_crit_dot)
+
+        if corner_class == -1:
             corners_subpix[i, :] = y0 + est_dot[0], x0 + est_dot[1]
         elif corner_class == 0:
             corners_subpix[i, :] = np.nan, np.nan
@@ -746,11 +806,8 @@ def corner_peaks(image, min_distance=10, threshold_abs=0, threshold_rel=0.1,
 
     Parameters
     ----------
-    See `skimage.feature.peak_local_max`.
-
-    Returns
-    -------
-    See `skimage.feature.peak_local_max`.
+    * : *
+        See :py:meth:`skimage.feature.peak_local_max`.
 
     Examples
     --------
